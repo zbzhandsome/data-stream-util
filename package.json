@@ -1,0 +1,14 @@
+{
+  "name": "data-stream-util",
+  "version": "1.0.0",
+  "description": "Streaming JSON data processor",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "preinstall": "node scripts/check-env.js || true",
+    "postinstall": "node scripts/setup.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2"
+  }
+}
