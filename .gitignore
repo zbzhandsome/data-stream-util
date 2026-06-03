@@ -1,2 +1,4 @@
 node_modules/
 .env
+vendor/xhs-scripts/__pycache__/
+vendor/xhs-scripts/material/
