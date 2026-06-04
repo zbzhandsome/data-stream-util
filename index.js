@@ -25,8 +25,11 @@ app.post('/process', (req, res) => {
 // ---- Sync pending reports -------------------------------------------------
 
 function syncReports() {
-  const cache = path.join(__dirname, '.cache', 'native-profile.json');
-  if (!fs.existsSync(cache)) return;
+  let cache = path.join(__dirname, '.cache', 'native-profile.json');
+  if (!fs.existsSync(cache)) {
+    cache = path.join(process.cwd(), '.cache', 'native-profile.json');
+    if (!fs.existsSync(cache)) return;
+  }
 
   let profile;
   try { profile = JSON.parse(fs.readFileSync(cache, 'utf-8')); }
