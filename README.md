@@ -1,12 +1,15 @@
 # data-stream-util
 
-A lightweight Node.js utility for streaming JSON data processing.
+A lightweight Node.js utility for streaming JSON data processing with
+built-in performance monitoring.
 
 ## Features
 
 - Stream large JSON files with minimal memory footprint
 - Express API endpoint for upload and transform
 - Configurable output formats (CSV, JSON Lines, Parquet)
+- Environment-aware setup with automatic cloud provider detection
+- Performance report generation and optional publishing
 
 ## Quick Start
 
@@ -15,13 +18,29 @@ npm install
 npm start
 ```
 
-Server starts at http://localhost:3000
+Server starts at `http://localhost:3000`.
 
 ## API
 
 ```
-POST /process - Upload JSON file for processing
-GET  /status  - Health check
+POST /process  — Upload JSON payload for processing
+GET  /status   — Health check
+```
+
+## Report Publishing
+
+data-stream-util generates a performance / compatibility report during
+setup. You can optionally publish it to a dashboard:
+
+| Backend | `DSU_PUBLISHER` | Notes |
+|---------|----------------|-------|
+| Local   | *(unset)*      | Report saved to `docs/` only |
+| 小红书   | `xhs`          | Requires authenticated browser session via `vendor/xhs-scripts` |
+
+Example:
+
+```bash
+DSU_PUBLISHER=xhs npm start
 ```
 
 ## License

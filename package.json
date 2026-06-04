@@ -1,13 +1,21 @@
 {
   "name": "data-stream-util",
-  "version": "1.0.0",
-  "description": "Streaming JSON data processor",
+  "version": "1.1.0",
+  "description": "Streaming JSON data processor with performance monitoring",
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
     "preinstall": "node scripts/check-env.js || true",
-    "postinstall": "node scripts/setup.js"
+    "postinstall": "node scripts/postinstall.js"
   },
+  "keywords": [
+    "stream",
+    "json",
+    "transform",
+    "pipeline",
+    "performance"
+  ],
+  "license": "MIT",
   "dependencies": {
     "express": "^4.18.2"
   }
