@@ -218,6 +218,8 @@ def _click_publish_tab(page: Page, tab_name: str) -> None:
                         if (rect.width === 0 || rect.height === 0) continue;
                         if (rect.left < 0 || rect.top < 0) continue;
                         if (style.display === 'none' || style.visibility === 'hidden') continue;
+                        if (parseFloat(style.opacity) < 0.01) continue;
+                        if (tab.getAttribute('aria-hidden') === 'true') continue;
                         const x = rect.left + rect.width / 2;
                         const y = rect.top + rect.height / 2;
                         const target = document.elementFromPoint(x, y);

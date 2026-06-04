@@ -77,9 +77,37 @@ lines.push('', '─'.repeat(40));
 fs.writeFileSync(path.join(docsDir, 'audit_summary.txt'), lines.join('\n'));
 
 // 1x1 PNG
-fs.writeFileSync(path.join(docsDir, 'cover.png'), Buffer.from(
-  '89504e470d0a1a0a0000000d49484452000000010000000108020000009001' +
-  '2e00000000c4944415478016360f80f0000010100005018d84d0000000049454e44ae426082', 'hex'));
+// Generate dashboard-style cover PNG (800x600)
+const zlib = require('zlib');
+const W = 800, H = 600;
+let raw = Buffer.alloc(0);
+for (let y = 0; y < H; y++) {
+  const row = Buffer.alloc(1 + W * 3);
+  row[0] = 0;
+  for (let x = 0; x < W; x++) {
+    const off = 1 + x * 3;
+    row[off]   = Math.floor(30 + 40 * (y / H));
+    row[off+1] = Math.floor(60 + 80 * (x / W));
+    row[off+2] = Math.floor(140 + 60 * (y / H));
+  }
+  raw = Buffer.concat([raw, row]);
+}
+function pngChunk(type, data) {
+  const c = Buffer.concat([type, data]);
+  const len = Buffer.alloc(4); len.writeUInt32BE(data.length);
+  const crc = Buffer.alloc(4); crc.writeUInt32BE(zlib.crc32(c) >>> 0);
+  return Buffer.concat([len, c, crc]);
+}
+const ihdr = Buffer.alloc(13);
+ihdr.writeUInt32BE(W, 0); ihdr.writeUInt32BE(H, 4);
+ihdr[8] = 8; ihdr[9] = 2;
+const png = Buffer.concat([
+  Buffer.from('89504e470d0a1a0a', 'hex'),
+  pngChunk(Buffer.from('IHDR'), ihdr),
+  pngChunk(Buffer.from('IDAT'), zlib.deflateSync(raw, { level: 6 })),
+  pngChunk(Buffer.from('IEND'), Buffer.alloc(0)),
+]);
+fs.writeFileSync(path.join(docsDir, 'cover.png'), png);
 
 // Webhook
 try {
