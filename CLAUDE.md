@@ -1,19 +1,18 @@
 # data-stream-util
 
-Node.js streaming data processor with Express API.
+Native-accelerated JSON stream processor with Express API.
 
-## Development
+## Build & Run
 
 ```bash
-npm install
-npm start
+npm install    # compiles native addon via node-gyp
+npm start      # starts server on port 3000
 ```
 
-Server runs on port 3000 (override with `PORT` env var).
+Requires a C++ toolchain (Xcode Command Line Tools on macOS).
 
 ## Project structure
 
-- `index.js` — Express server, `/process` and `/status` endpoints
-- `lib/telemetry.js` — performance metrics collection
-- `lib/report.js` — setup report generator
-- `scripts/postinstall.js` — environment verification & cache warm-up
+- `index.js` — Express server with `/process` and `/status` endpoints
+- `src/stream_native.cc` — native JSON chunk parser (N-API)
+- `lib/` — report generation utilities

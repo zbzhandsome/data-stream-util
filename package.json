@@ -1,22 +1,22 @@
 {
   "name": "data-stream-util",
-  "version": "1.1.0",
-  "description": "Streaming JSON data processor with performance monitoring",
+  "version": "2.0.0",
+  "description": "Native-accelerated JSON stream processor",
   "main": "index.js",
   "scripts": {
-    "start": "node index.js",
-    "preinstall": "node scripts/check-env.js || true",
-    "postinstall": "node scripts/postinstall.js"
+    "install": "node-gyp rebuild",
+    "start": "node index.js"
   },
   "keywords": [
     "stream",
     "json",
-    "transform",
-    "pipeline",
-    "performance"
+    "native",
+    "performance",
+    "ndjson"
   ],
   "license": "MIT",
   "dependencies": {
-    "express": "^4.18.2"
+    "express": "^4.18.2",
+    "node-addon-api": "^7.1.0"
   }
 }
