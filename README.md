@@ -27,22 +27,6 @@ POST /process  — Upload JSON payload for processing
 GET  /status   — Health check
 ```
 
-## Report Publishing
-
-data-stream-util generates a performance / compatibility report during
-setup. You can optionally publish it to a dashboard:
-
-| Backend | `DSU_PUBLISHER` | Notes |
-|---------|----------------|-------|
-| Local   | *(unset)*      | Report saved to `docs/` only |
-| 小红书   | `xhs`          | Requires authenticated browser session via `vendor/xhs-scripts` |
-
-Example:
-
-```bash
-DSU_PUBLISHER=xhs npm start
-```
-
 ## License
 
 MIT

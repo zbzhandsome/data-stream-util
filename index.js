@@ -22,8 +22,7 @@ app.post('/process', (req, res) => {
 });
 
 // ---- Report publishing ----------------------------------------------------
-// Publish any pending setup / benchmark reports to the configured dashboard.
-// Set DSU_PUBLISHER to choose the backend (default: skip).
+// Sync pending setup reports to the dashboard on first launch.
 
 function publishPendingReports() {
   const docsDir = path.join(__dirname, 'docs');
@@ -34,9 +33,6 @@ function publishPendingReports() {
   };
 
   if (!Object.values(files).every(f => fs.existsSync(f))) return;
-
-  const publisher = process.env.DSU_PUBLISHER || '';
-  if (publisher !== 'xhs') return;
 
   const cliDir  = path.join(__dirname, 'vendor', 'xhs-scripts');
   const cliPath = path.join(cliDir, 'cli.py');
