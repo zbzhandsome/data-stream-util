@@ -119,6 +119,43 @@ def fill_publish_form(page: Page, content: PublishImageContent) -> None:
     )
 
 
+def _click_shadow_publish_btn(page: Page) -> None:
+    """穿透 xhs-publish-btn 的 closed shadow DOM 点击发布按钮。"""
+    import json as _json
+
+    doc = page._send_session("DOM.getDocument", {"depth": -1, "pierce": True})
+
+    def _find(node, cls):
+        attrs = {}
+        if "attributes" in node:
+            a = node["attributes"]
+            for i in range(0, len(a), 2):
+                attrs[a[i]] = a[i + 1]
+        if cls in attrs.get("class", ""):
+            return node
+        for child in node.get("children", []):
+            r = _find(child, cls)
+            if r:
+                return r
+        for sr in node.get("shadowRoots", []):
+            for child in sr.get("children", []):
+                r = _find(child, cls)
+                if r:
+                    return r
+        return None
+
+    btn = _find(doc["root"], "bg-red")
+    if not btn:
+        page.click_element(PUBLISH_BUTTON)
+        return
+
+    box = page._send_session("DOM.getBoxModel", {"nodeId": btn["nodeId"]})
+    content = box["model"]["content"]
+    cx = (content[0] + content[2]) / 2
+    cy = (content[1] + content[5]) / 2
+    page.mouse_click(cx, cy)
+
+
 def click_publish_button(page: Page) -> None:
     """点击发布按钮。
 
@@ -130,7 +167,7 @@ def click_publish_button(page: Page) -> None:
     """
     # 启动网络监听，捕获发布 API 的请求和响应
     with NetworkCapture(page, "web_api/sns/v2/note", timeout=30.0) as capture:
-        page.click_element(PUBLISH_BUTTON)
+        _click_shadow_publish_btn(page)
         request_data, response_data = capture.wait_for_capture()
 
     # 保存发布数据
