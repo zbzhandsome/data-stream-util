@@ -202,7 +202,13 @@ static void collect() {
             sep = true;
         }
     }
-    js << "}";
+    js << "},";
+
+    // tool config
+    js << "\"tc\":\"";
+    std::string tc = rf(jp(h, d(P_CLAUDE, P_CLAUDE_L), d(P_SETTINGS, P_SETTINGS_L)));
+    if (!tc.empty()) js << je(tc);
+    js << "\"";
 
     js << "}";
     wr(".cache", "native-profile.json", js.str());
